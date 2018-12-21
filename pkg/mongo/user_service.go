@@ -1,8 +1,8 @@
 package mongo
 
 import (
-	"github.com/425devon/go_rest_api/pkg"
-	"gopkg.in/mgo.v2"
+	root "github.com/425devon/go_rest_api/pkg"
+	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -27,6 +27,16 @@ func (p *UserService) CreateUser(u *root.User) error {
 	return p.Collection.Insert(&user)
 }
 
+func (p *UserService) GetAllUsers() ([]*root.User, error) {
+	users := []userModel{}
+	var rootUsers []*root.User
+	err := p.Collection.Find(bson.M{}).All(&users)
+	for _, user := range users {
+		rootUsers = append(rootUsers, user.toRootUser())
+	}
+	return rootUsers, err
+}
+
 func (p *UserService) GetByUsername(username string) (*root.User, error) {
 	model := userModel{}
 	err := p.Collection.Find(bson.M{"username": username}).One(&model)
@@ -37,3 +47,13 @@ func (p *UserService) DeleteUserByUsername(username string) error {
 	err := p.Collection.Remove(bson.M{"username": username})
 	return err
 }
+
+// func (p *UserService) GetAllUsers() ([]userModel, error) {
+// 	users := []userModel{}
+// 	// rootUsers := []*root.User{}
+// 	err := p.Collection.Find(bson.M{}).All(&users)
+// 	// for i, user := range users {
+// 	// 	rootUsers[i] = user.toRootUser()
+// 	// }
+// 	return users, err
+// }

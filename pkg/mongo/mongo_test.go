@@ -4,7 +4,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/425devon/go_rest_api/pkg"
+	root "github.com/425devon/go_rest_api/pkg"
 	"github.com/425devon/go_rest_api/pkg/mock"
 	"github.com/425devon/go_rest_api/pkg/mongo"
 )
@@ -17,19 +17,14 @@ const (
 
 func Test_UserService(t *testing.T) {
 	t.Run("CreateUser", createUser_should_insert_user_into_mongo)
-	t.Run("DeleteUserByUsername", DeleteUserByUsername_should_remove_user)
+	t.Run("GetAllUsers", get_all_users_should_return_all_users)
+	t.Run("DeleteUserByUsername", deleteUserByUsername_should_remove_user)
 }
 
 func createUser_should_insert_user_into_mongo(t *testing.T) {
 	//Arrange
-	session, err := mongo.NewSession(mongoURL)
-	if err != nil {
-		log.Fatalf("Unable to connect to mongo: %s", err)
-	}
-	defer func() {
-		session.DropDatabase(dbName)
-		session.Close()
-	}()
+	session := newSession()
+	defer dropAndCloseDB(session)
 	mockHash := mock.Hash{}
 	userService := mongo.NewUserService(session.Copy(), dbName, userCollectionName, &mockHash)
 
@@ -39,7 +34,7 @@ func createUser_should_insert_user_into_mongo(t *testing.T) {
 	}
 
 	//Act
-	err = userService.CreateUser(&user)
+	err := userService.CreateUser(&user)
 
 	//Assert
 	if err != nil {
@@ -57,16 +52,47 @@ func createUser_should_insert_user_into_mongo(t *testing.T) {
 	}
 }
 
-func DeleteUserByUsername_should_remove_user(t *testing.T) {
+func get_all_users_should_return_all_users(t *testing.T) {
 	//Arrange
-	session, err := mongo.NewSession(mongoURL)
-	if err != nil {
-		log.Fatalf("Unable to connect to mongo: %s", err)
+	session := newSession()
+	defer dropAndCloseDB(session)
+	mockHash := mock.Hash{}
+	userService := mongo.NewUserService(session.Copy(), dbName, userCollectionName, &mockHash)
+
+	users := []root.User{
+		{
+			Username: "integration_test_user",
+			Password: "integration_test_password",
+		},
+		{
+			Username: "user2",
+			Password: "integration_test_password2",
+		},
+		{
+			Username: "user3",
+			Password: "integration_test_password3",
+		},
 	}
-	defer func() {
-		session.DropDatabase(dbName)
-		session.Close()
-	}()
+
+	//Act
+	for _, user := range users {
+		userService.CreateUser(&user)
+	}
+	retrievedUsers, err := userService.GetAllUsers()
+	if err != nil {
+		t.Errorf("Unable to retrieve all users: %s", err)
+	}
+
+	//Assert
+	if len(retrievedUsers) != 3 {
+		t.Errorf("Expecteed to retrieve `3` users. Got: `%d`", len(retrievedUsers))
+	}
+}
+
+func deleteUserByUsername_should_remove_user(t *testing.T) {
+	//Arrange
+	session := newSession()
+	defer dropAndCloseDB(session)
 	mockHash := mock.Hash{}
 	userService := mongo.NewUserService(session.Copy(), dbName, userCollectionName, &mockHash)
 	user := root.User{
@@ -76,11 +102,24 @@ func DeleteUserByUsername_should_remove_user(t *testing.T) {
 
 	//Act
 	userService.CreateUser(&user)
-	err = userService.DeleteUserByUsername(user.Username)
+	err := userService.DeleteUserByUsername(user.Username)
 
 	//Assert
 	if err != nil {
 		t.Errorf("Unanble to delete user: %s", err)
 	}
 
+}
+
+func newSession() *mongo.Session {
+	session, err := mongo.NewSession(mongoURL)
+	if err != nil {
+		log.Fatalf("Unable to connect to mongo: %s", err)
+	}
+	return session
+}
+
+func dropAndCloseDB(session *mongo.Session) {
+	session.DropDatabase(dbName)
+	session.Close()
 }
