@@ -45,8 +45,8 @@ func (p *UserService) GetUserById(id string) (*root.User, error) {
 	return model.toRootUser(), err
 }
 
-func (p *UserService) UpdateUserById(u *root.User) error {
-	err := p.Collection.UpdateId(u.Id, &u)
+func (p *UserService) UpdateUser(u *root.User) error {
+	err := p.Collection.UpdateId(bson.ObjectIdHex(u.Id), &u)
 	return err
 }
 

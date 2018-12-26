@@ -19,6 +19,7 @@ func Test_UserService(t *testing.T) {
 	t.Run("CreateUser", createUser_should_insert_user_into_mongo)
 	t.Run("GetUserById", getUserById_should_return_user_by_Id)
 	t.Run("GetAllUsers", get_all_users_should_return_all_users)
+	t.Run("UpdateUser", updateUser_should_update_user)
 	t.Run("DeleteUserById", deleteUserById_should_remove_user)
 }
 
@@ -112,7 +113,34 @@ func getUserById_should_return_user_by_Id(t *testing.T) {
 	}
 }
 
-func updateUserById_should_update_user(t *testing.T) {
+func updateUser_should_update_user(t *testing.T) {
+	//Arrange
+	session := newSession()
+	userService := newUserService(session)
+	defer dropAndCloseDB(session)
+
+	user := root.User{
+		Username: "Devon_Test",
+		Password: "ChangeMe",
+	}
+
+	//Act
+	uid, err := userService.CreateUser(&user)
+	recievedUser, err := userService.GetUserById(uid)
+	recievedUser.Password = "MuchBetter"
+	err = userService.UpdateUser(recievedUser)
+	updatedUser, err := userService.GetUserById(uid)
+	if err != nil {
+		t.Error(err)
+	}
+
+	//Assert
+	if user.Password == updatedUser.Password {
+		t.Error("Passwords shoud not match!")
+	}
+	if updatedUser.Password != "MuchBetter" {
+		t.Errorf("Incorrect Password, expected: `MuchBetter` got: `%s`", updatedUser.Password)
+	}
 
 }
 
