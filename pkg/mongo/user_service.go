@@ -17,14 +17,16 @@ func NewUserService(session *Session, dbName string, collectionName string, hash
 	return &UserService{collection, hash}
 }
 
-func (p *UserService) CreateUser(u *root.User) error {
+func (p *UserService) CreateUser(u *root.User) (_id string, err error) {
 	user := newUserModel(u)
+	user.Id = bson.NewObjectId()
+	var uid = user.Id.Hex()
 	hashedPassword, err := p.hash.Generate(user.Password)
 	if err != nil {
-		return err
+		return uid, err
 	}
 	user.Password = hashedPassword
-	return p.Collection.Insert(&user)
+	return uid, p.Collection.Insert(&user)
 }
 
 func (p *UserService) GetAllUsers() ([]*root.User, error) {
@@ -37,23 +39,19 @@ func (p *UserService) GetAllUsers() ([]*root.User, error) {
 	return rootUsers, err
 }
 
-func (p *UserService) GetByUsername(username string) (*root.User, error) {
+func (p *UserService) GetUserById(id string) (*root.User, error) {
 	model := userModel{}
-	err := p.Collection.Find(bson.M{"username": username}).One(&model)
+	err := p.Collection.FindId(bson.ObjectIdHex(id)).One(&model)
 	return model.toRootUser(), err
 }
 
-func (p *UserService) DeleteUserByUsername(username string) error {
-	err := p.Collection.Remove(bson.M{"username": username})
+func (p *UserService) UpdateUserById(u *root.User) error {
+	err := p.Collection.UpdateId(u.Id, &u)
 	return err
 }
 
-// func (p *UserService) GetAllUsers() ([]userModel, error) {
-// 	users := []userModel{}
-// 	// rootUsers := []*root.User{}
-// 	err := p.Collection.Find(bson.M{}).All(&users)
-// 	// for i, user := range users {
-// 	// 	rootUsers[i] = user.toRootUser()
-// 	// }
-// 	return users, err
-// }
+func (p *UserService) DeleteUserById(id string) error {
+	oid := bson.ObjectIdHex(id)
+	err := p.Collection.RemoveId(oid)
+	return err
+}
