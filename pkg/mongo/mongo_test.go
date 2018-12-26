@@ -17,16 +17,16 @@ const (
 
 func Test_UserService(t *testing.T) {
 	t.Run("CreateUser", createUser_should_insert_user_into_mongo)
+	t.Run("GetUserById", getUserById_should_return_user_by_Id)
 	t.Run("GetAllUsers", get_all_users_should_return_all_users)
-	t.Run("DeleteUserByUsername", deleteUserByUsername_should_remove_user)
+	t.Run("DeleteUserById", deleteUserById_should_remove_user)
 }
 
 func createUser_should_insert_user_into_mongo(t *testing.T) {
 	//Arrange
 	session := newSession()
+	userService := newUserService(session)
 	defer dropAndCloseDB(session)
-	mockHash := mock.Hash{}
-	userService := mongo.NewUserService(session.Copy(), dbName, userCollectionName, &mockHash)
 
 	user := root.User{
 		Username: "integration_test_user",
@@ -34,7 +34,7 @@ func createUser_should_insert_user_into_mongo(t *testing.T) {
 	}
 
 	//Act
-	err := userService.CreateUser(&user)
+	_, err := userService.CreateUser(&user)
 
 	//Assert
 	if err != nil {
@@ -55,9 +55,8 @@ func createUser_should_insert_user_into_mongo(t *testing.T) {
 func get_all_users_should_return_all_users(t *testing.T) {
 	//Arrange
 	session := newSession()
+	userService := newUserService(session)
 	defer dropAndCloseDB(session)
-	mockHash := mock.Hash{}
-	userService := mongo.NewUserService(session.Copy(), dbName, userCollectionName, &mockHash)
 
 	users := []root.User{
 		{
@@ -89,20 +88,48 @@ func get_all_users_should_return_all_users(t *testing.T) {
 	}
 }
 
-func deleteUserByUsername_should_remove_user(t *testing.T) {
+func getUserById_should_return_user_by_Id(t *testing.T) {
 	//Arrange
 	session := newSession()
+	userService := newUserService(session)
 	defer dropAndCloseDB(session)
-	mockHash := mock.Hash{}
-	userService := mongo.NewUserService(session.Copy(), dbName, userCollectionName, &mockHash)
+
 	user := root.User{
 		Username: "integration_test_user",
 		Password: "integration_test_password",
 	}
 
 	//Act
-	userService.CreateUser(&user)
-	err := userService.DeleteUserByUsername(user.Username)
+	uid, err := userService.CreateUser(&user)
+	recievedUser, err := userService.GetUserById(uid)
+
+	//Assert
+	if err != nil {
+		t.Errorf("Error retrieving user by id: %s", err)
+	}
+	if recievedUser.Id != uid {
+		t.Errorf("Expected user Id to match. Wanted: `%s` Got: `%s`", uid, recievedUser.Id)
+	}
+}
+
+func updateUserById_should_update_user(t *testing.T) {
+
+}
+
+func deleteUserById_should_remove_user(t *testing.T) {
+	//Arrange
+	session := newSession()
+	userService := newUserService(session)
+	defer dropAndCloseDB(session)
+
+	user := root.User{
+		Username: "integration_test_user",
+		Password: "integration_test_password",
+	}
+
+	//Act
+	uid, _ := userService.CreateUser(&user)
+	err := userService.DeleteUserById(uid)
 
 	//Assert
 	if err != nil {
@@ -117,6 +144,12 @@ func newSession() *mongo.Session {
 		log.Fatalf("Unable to connect to mongo: %s", err)
 	}
 	return session
+}
+
+func newUserService(session *mongo.Session) *mongo.UserService {
+	mockHash := mock.Hash{}
+	userService := mongo.NewUserService(session.Copy(), dbName, userCollectionName, &mockHash)
+	return userService
 }
 
 func dropAndCloseDB(session *mongo.Session) {
